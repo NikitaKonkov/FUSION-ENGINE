@@ -48,10 +48,38 @@ static char buffer[MAX_WIDTH * MAX_HEIGHT * BIT_RATE];
 
 int pos = 0; // Current position in the buffer
 
-// 3D framebuffer for rendering
-static int framebuffer[RENDER_HEIGHT][RENDER_WIDTH];
+// Dynamic 3D framebuffer allocation
+static int** dynamic_framebuffer = NULL;
+static int current_fb_width = 0;
+static int current_fb_height = 0;
 
-// New function to render 3D cube using cmd_drawer_ANSI
+// Helper function to allocate dynamic framebuffer
+int** allocate_framebuffer(int width, int height) {
+    if (dynamic_framebuffer != NULL && current_fb_width == width && current_fb_height == height) {
+        return dynamic_framebuffer; // Reuse existing buffer
+    }
+    
+    // Free existing buffer if size changed
+    if (dynamic_framebuffer != NULL) {
+        for (int i = 0; i < current_fb_height; i++) {
+            free(dynamic_framebuffer[i]);
+        }
+        free(dynamic_framebuffer);
+    }
+    
+    // Allocate new buffer
+    dynamic_framebuffer = (int**)malloc(height * sizeof(int*));
+    for (int i = 0; i < height; i++) {
+        dynamic_framebuffer[i] = (int*)malloc(width * sizeof(int));
+    }
+    
+    current_fb_width = width;
+    current_fb_height = height;
+    
+    return dynamic_framebuffer;
+}
+
+// New function to render 3D cube using dynamic resolution
 void cmd_drawer_3D_cube(unsigned ticks) {
     HANDLE hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
     CONSOLE_SCREEN_BUFFER_INFO csbi;
@@ -80,40 +108,44 @@ void cmd_drawer_3D_cube(unsigned ticks) {
     if (width_1 > MAX_WIDTH) width_1 = MAX_WIDTH;
     if (height_1 > MAX_HEIGHT) height_1 = MAX_HEIGHT;
 
+    // Calculate actual render dimensions (avoid first 2 rows and last 2 rows)
+    int render_width = width_1 - is_uneven;
+    int render_height = height_1 - 4; // -4 for 2 rows top and 2 rows bottom
+    
+    // Ensure minimum size
+    if (render_width < 10) render_width = 10;
+    if (render_height < 10) render_height = 10;
+
     // Calculate rotation based on ticks
     float rotation_x = (ticks * 0.02f);
     float rotation_y = (ticks * 0.03f);
     float rotation_z = (ticks * 0.01f);
     
-    // Render 3D cube to framebuffer
-    render3d_cube(framebuffer, rotation_x, rotation_y, rotation_z);
+    // Allocate dynamic framebuffer
+    int** framebuffer = allocate_framebuffer(render_width, render_height);
+    
+    // Render 3D cube to dynamic framebuffer
+    render3d_cube_dynamic(framebuffer, render_width, render_height, rotation_x, rotation_y, rotation_z);
     
     pos = 0; // Reset position
     
-    // Convert 3D framebuffer to ANSI output
-    int render_width = RENDER_WIDTH;
-    int render_height = RENDER_HEIGHT;
-    
-    // Scale down if necessary to fit console
-    if (render_width > width_1) render_width = width_1;
-    if (render_height > height_1 - 4) render_height = height_1 - 4;
-    
-    for (int y = 2; y < render_height + 2; y++) {
+    // Convert 3D framebuffer to ANSI output (following the same pattern as cmd_drawer_ANSI)
+    for (int y = 2; y < height_1 - 2; y++) {
         for (int x = 0; x < render_width; x++) {
             // Check buffer bounds
             if (pos >= sizeof(buffer) - 20) break;
             
             // Get color from 3D framebuffer
-            int fb_y = (y - 2) * RENDER_HEIGHT / render_height;
-            int fb_x = x * RENDER_WIDTH / render_width;
+            int fb_y = y - 2;
+            int fb_x = x;
             
-            if (fb_y >= 0 && fb_y < RENDER_HEIGHT && fb_x >= 0 && fb_x < RENDER_WIDTH) {
+            if (fb_y >= 0 && fb_y < render_height && fb_x >= 0 && fb_x < render_width) {
                 int color_index = framebuffer[fb_y][fb_x];
                 
                 if (color_index > 0) {
                     // Map color index to ANSI color
                     int ansi_color = 30 + (color_index % 8);
-                    pos += snprintf(&buffer[pos], sizeof(buffer) - pos, "\x1B[%dm##", ansi_color);
+                    pos += snprintf(&buffer[pos], sizeof(buffer) - pos, "\x1B[%dmXO", ansi_color);
                 } else {
                     // Background
                     pos += snprintf(&buffer[pos], sizeof(buffer) - pos, "  ");
@@ -132,7 +164,7 @@ void cmd_drawer_3D_cube(unsigned ticks) {
     // Null terminate and output
     if (pos < sizeof(buffer)) buffer[pos] = '\0';
 
-    printf("\x1B[4H%s", buffer);
+    printf("\x1B[3H%s", buffer);
 }
 
 

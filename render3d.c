@@ -57,8 +57,8 @@ DLL_EXPORT void render3d_cleanup() {
     // Nothing to cleanup for now
 }
 
-// Transform 3D point to 2D screen coordinates
-DLL_EXPORT void render3d_project(float x, float y, float z, int* screen_x, int* screen_y) {
+// Transform 3D point to 2D screen coordinates with dynamic resolution
+DLL_EXPORT void render3d_project_dynamic(float x, float y, float z, int render_width, int render_height, int* screen_x, int* screen_y) {
     // Move camera back
     z += CAMERA_DISTANCE;
     
@@ -68,9 +68,9 @@ DLL_EXPORT void render3d_project(float x, float y, float z, int* screen_x, int* 
         float projected_x = x * scale;
         float projected_y = y * scale;
         
-        // Convert to screen coordinates
-        *screen_x = (int)(projected_x * RENDER_WIDTH / 2 + RENDER_WIDTH / 2);
-        *screen_y = (int)(-projected_y * RENDER_HEIGHT / 2 + RENDER_HEIGHT / 2);
+        // Convert to screen coordinates using dynamic resolution
+        *screen_x = (int)(projected_x * render_width / 2 + render_width / 2);
+        *screen_y = (int)(-projected_y * render_height / 2 + render_height / 2);
     } else {
         // Point is behind camera
         *screen_x = -1;
@@ -78,24 +78,24 @@ DLL_EXPORT void render3d_project(float x, float y, float z, int* screen_x, int* 
     }
 }
 
-// Clear the framebuffer
-DLL_EXPORT void render3d_clear(int framebuffer[RENDER_HEIGHT][RENDER_WIDTH], int color) {
-    for (int y = 0; y < RENDER_HEIGHT; y++) {
-        for (int x = 0; x < RENDER_WIDTH; x++) {
+// Clear the framebuffer with dynamic resolution
+DLL_EXPORT void render3d_clear_dynamic(int** framebuffer, int width, int height, int color) {
+    for (int y = 0; y < height; y++) {
+        for (int x = 0; x < width; x++) {
             framebuffer[y][x] = color;
         }
     }
 }
 
-// Draw a pixel in the framebuffer
-DLL_EXPORT void render3d_pixel(int framebuffer[RENDER_HEIGHT][RENDER_WIDTH], int x, int y, int color) {
-    if (x >= 0 && x < RENDER_WIDTH && y >= 0 && y < RENDER_HEIGHT) {
+// Draw a pixel in the framebuffer with dynamic resolution
+DLL_EXPORT void render3d_pixel_dynamic(int** framebuffer, int width, int height, int x, int y, int color) {
+    if (x >= 0 && x < width && y >= 0 && y < height) {
         framebuffer[y][x] = color;
     }
 }
 
-// Draw a line using Bresenham's algorithm
-DLL_EXPORT void render3d_line(int framebuffer[RENDER_HEIGHT][RENDER_WIDTH], int x0, int y0, int x1, int y1, int color) {
+// Draw a line using Bresenham's algorithm with dynamic resolution
+DLL_EXPORT void render3d_line_dynamic(int** framebuffer, int width, int height, int x0, int y0, int x1, int y1, int color) {
     int dx = abs(x1 - x0);
     int dy = abs(y1 - y0);
     int sx = x0 < x1 ? 1 : -1;
@@ -103,7 +103,7 @@ DLL_EXPORT void render3d_line(int framebuffer[RENDER_HEIGHT][RENDER_WIDTH], int 
     int err = dx - dy;
     
     while (1) {
-        render3d_pixel(framebuffer, x0, y0, color);
+        render3d_pixel_dynamic(framebuffer, width, height, x0, y0, color);
         
         if (x0 == x1 && y0 == y1) break;
         
@@ -119,10 +119,10 @@ DLL_EXPORT void render3d_line(int framebuffer[RENDER_HEIGHT][RENDER_WIDTH], int 
     }
 }
 
-// Render a rotating cube
-DLL_EXPORT void render3d_cube(int framebuffer[RENDER_HEIGHT][RENDER_WIDTH], float rotation_x, float rotation_y, float rotation_z) {
+// Render a rotating cube with dynamic resolution
+DLL_EXPORT void render3d_cube_dynamic(int** framebuffer, int width, int height, float rotation_x, float rotation_y, float rotation_z) {
     // Clear the framebuffer
-    render3d_clear(framebuffer, 0);
+    render3d_clear_dynamic(framebuffer, width, height, 0);
     
     // Define cube vertices
     Vertex3D cube_vertices[8] = {
@@ -154,8 +154,8 @@ DLL_EXPORT void render3d_cube(int framebuffer[RENDER_HEIGHT][RENDER_WIDTH], floa
     // Project vertices to screen coordinates
     int screen_coords[8][2];
     for (int i = 0; i < 8; i++) {
-        render3d_project(cube_vertices[i].x, cube_vertices[i].y, cube_vertices[i].z, 
-                        &screen_coords[i][0], &screen_coords[i][1]);
+        render3d_project_dynamic(cube_vertices[i].x, cube_vertices[i].y, cube_vertices[i].z, 
+                                width, height, &screen_coords[i][0], &screen_coords[i][1]);
     }
     
     // Define cube edges (vertex index pairs)
@@ -176,12 +176,12 @@ DLL_EXPORT void render3d_cube(int framebuffer[RENDER_HEIGHT][RENDER_WIDTH], floa
         int y1 = screen_coords[v1][1];
         
         // Only draw if both vertices are on screen
-        if (x0 >= 0 && x0 < RENDER_WIDTH && y0 >= 0 && y0 < RENDER_HEIGHT &&
-            x1 >= 0 && x1 < RENDER_WIDTH && y1 >= 0 && y1 < RENDER_HEIGHT) {
+        if (x0 >= 0 && x0 < width && y0 >= 0 && y0 < height &&
+            x1 >= 0 && x1 < width && y1 >= 0 && y1 < height) {
             
             // Use different colors for different edges
             int color = 1 + (i % 7); // Colors 1-7
-            render3d_line(framebuffer, x0, y0, x1, y1, color);
+            render3d_line_dynamic(framebuffer, width, height, x0, y0, x1, y1, color);
         }
     }
 }
