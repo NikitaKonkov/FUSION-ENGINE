@@ -9,5 +9,6 @@
 #endif
 
 DLL_EXPORT void cmd_drawer_ANSI(unsigned int ticks);
+DLL_EXPORT void cmd_drawer_3D_cube(unsigned int ticks);
 
 #endif // RENDER_H

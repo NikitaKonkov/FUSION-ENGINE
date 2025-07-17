@@ -7,7 +7,8 @@ rem gcc -shared -o binary\count.dll count.c -DBUILD_DLL
 rem gcc -shared -o binary\matrix.dll matrix.c -DBUILD_DLL
 rem gcc -shared -o binary\bot.dll bot.c -DBUILD_DLL
 rem gcc -shared -o binary\sound.dll sound.c -lwinmm -lpthread -DBUILD_DLL
-gcc -shared -o binary\render.dll render.c
+gcc -shared -o binary\render3d.dll render3d.c -DBUILD_DLL
+gcc -shared -o binary\render.dll render.c render3d.c -DBUILD_DLL
 
 gcc -o binary\example.exe example.c
 

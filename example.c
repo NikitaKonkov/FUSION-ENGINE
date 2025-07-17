@@ -56,6 +56,7 @@ typedef void (*Render_Cube)(float, float, float);
 typedef void (*Render_Present)();
 
 typedef void (*Cmd_Drawer_ANSI)(unsigned int);
+typedef void (*Cmd_Drawer_3D_Cube)(unsigned int);
 
 // DLL management structure
 typedef struct {
@@ -117,6 +118,7 @@ int main() {
 
     // Add cmd_drawer function pointer
     Cmd_Drawer_ANSI cmd_drawer_ANSI = NULL;
+    Cmd_Drawer_3D_Cube cmd_drawer_3D_cube = NULL;
 
     // DLL information array
     DllInfo dlls[] = {
@@ -155,7 +157,8 @@ int main() {
         {(void**)&sound_set_frequency, "sound_set_frequency", 5, "Set frequency"},
         {(void**)&sound_is_playing, "sound_is_playing", 5, "Check if playing"},
         //
-        {(void**)&cmd_drawer_ANSI, "cmd_drawer_ANSI", 6, "ANSI drawer function"}
+        {(void**)&cmd_drawer_ANSI, "cmd_drawer_ANSI", 6, "ANSI drawer function"},
+        {(void**)&cmd_drawer_3D_cube, "cmd_drawer_3D_cube", 6, "3D cube drawer function"}
     };
     const int func_count = sizeof(functions) / sizeof(functions[0]);
     
@@ -241,6 +244,7 @@ int main() {
     DWORD lastTime = GetTickCount();
     DWORD frameCount = 0;
     float fps = 0.0f;
+    int render_mode = 0; // 0 = ANSI pattern, 1 = 3D cube
     
     while (1)
     {
@@ -254,11 +258,29 @@ int main() {
             lastTime = currentTime;
         }
         
-        // Display FPS in top-right corner
-        printf("\x1B[0m\x1B[0H%.2f", fps);
-        // fflush(stdout);
+        // Check for mode switch (Space key)
+        if (GetAsyncKeyState(VK_SPACE) & 0x8000) {
+            render_mode = !render_mode;
+            system("cls");
+            Sleep(200); // Debounce
+        }
         
-        cmd_drawer_ANSI(tick);
+        // Check for exit (Escape key)
+        if (GetAsyncKeyState(VK_ESCAPE) & 0x8000) {
+            break;
+        }
+        
+        // Display FPS and mode in top-right corner
+        printf("\x1B[0m\x1B[0H%.2f FPS | Mode: %s", fps, 
+               render_mode ? "3D Cube" : "ANSI Pattern");
+        
+        // Render based on current mode
+        if (render_mode == 0) {
+            cmd_drawer_ANSI(tick);
+        } else {
+            cmd_drawer_3D_cube(tick);
+        }
+        
         tick++;
     }
     
